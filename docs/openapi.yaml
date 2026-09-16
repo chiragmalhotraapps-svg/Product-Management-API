@@ -3,13 +3,19 @@ info:
   title: Product Management API
   description: A lightweight REST API for managing a product catalog with support for soft-archiving and advanced filtering.
   version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
 servers:
   - url: http://localhost:3000
     description: Local development server
 
+security: []
+
 paths:
   /products:
     get:
+      operationId: listProducts
       summary: List all active products
       description: Retrieves a list of products that are not archived, with optional filtering.
       parameters:
@@ -57,6 +63,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
     post:
+      operationId: createProduct
       summary: Create a new product
       description: Validates input and adds a new product to the store. Ensures SKU uniqueness.
       requestBody:
@@ -101,6 +108,7 @@ paths:
           format: uuid
 
     get:
+      operationId: getProductById
       summary: Get a product by ID
       description: Retrieves an active product by its unique identifier.
       responses:
@@ -118,6 +126,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
     patch:
+      operationId: updateProduct
       summary: Update a product
       description: Partially updates an active product. Protected fields (id, sku, createdAt) cannot be modified.
       requestBody:
@@ -153,6 +162,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
     delete:
+      operationId: archiveProduct
       summary: Soft-archive a product
       description: Marks a product as archived. Data is preserved but it will no longer appear in active lists.
       responses:
@@ -171,6 +181,7 @@ paths:
 
   /products/{id}/restore:
     post:
+      operationId: restoreProduct
       summary: Restore an archived product
       description: Re-activates a soft-archived product.
       parameters:
@@ -202,11 +213,18 @@ paths:
 
   /products/reset:
     delete:
+      operationId: resetProductStore
       summary: Reset the product store
       description: Clears all products from the in-memory store.
       responses:
         '204':
           description: Store reset successfully. No content returned.
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:
@@ -297,10 +315,8 @@ components:
       properties:
         success:
           type: boolean
-        data:
-          type: any
-        error:
-          type: any
+        data: {}
+        error: {}
 
     ApiEnvelopeProduct:
       allOf:
