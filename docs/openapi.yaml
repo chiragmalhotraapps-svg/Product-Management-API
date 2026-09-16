@@ -1,0 +1,331 @@
+openapi: 3.1.0
+info:
+  title: Product Management API
+  description: A lightweight REST API for managing a product catalog with support for soft-archiving and advanced filtering.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /products:
+    get:
+      summary: List all active products
+      description: Retrieves a list of products that are not archived, with optional filtering.
+      parameters:
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/Category'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProductStatus'
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+            format: float
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+            format: float
+        - name: inStock
+          in: query
+          description: Filter for products with stock > 0.
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - name: search
+          in: query
+          description: Case-insensitive search across name and description.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved product list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelopeProductList'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new product
+      description: Validates input and adds a new product to the store. Ensures SKU uniqueness.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Product created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelopeProduct'
+        '400':
+          description: Validation error (e.g., missing required fields).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict - SKU already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable entity - Invalid SKU format or price.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      summary: Get a product by ID
+      description: Retrieves an active product by its unique identifier.
+      responses:
+        '200':
+          description: Product found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelopeProduct'
+        '404':
+          description: Product not found or is archived.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update a product
+      description: Partially updates an active product. Protected fields (id, sku, createdAt) cannot be modified.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductPatch'
+      responses:
+        '200':
+          description: Product updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelopeProduct'
+        '400':
+          description: Invalid input or attempted update of protected fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid category or validation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Soft-archive a product
+      description: Marks a product as archived. Data is preserved but it will no longer appear in active lists.
+      responses:
+        '200':
+          description: Product archived successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelopeProduct'
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{id}/restore:
+    post:
+      summary: Restore an archived product
+      description: Re-activates a soft-archived product.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Product restored successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelopeProduct'
+        '400':
+          description: Product is not archived.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/reset:
+    delete:
+      summary: Reset the product store
+      description: Clears all products from the in-memory store.
+      responses:
+        '204':
+          description: Store reset successfully. No content returned.
+
+components:
+  schemas:
+    Category:
+      type: string
+      enum: [electronics, books, clothing, home, toys, Uncategorized]
+
+    ProductStatus:
+      type: string
+      enum: [active, archived]
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sku:
+          type: string
+          pattern: '^[a-zA-Z0-9-]+$'
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+        category:
+          $ref: '#/components/schemas/Category'
+        stock:
+          type: integer
+          minimum: 0
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+        createdAt:
+          type: string
+          format: date-time
+        archivedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+      required: [id, name, sku, price, category, stock, description, status, createdAt, archivedAt]
+
+    ProductInput:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+          pattern: '^[a-zA-Z0-9-]+$'
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+        category:
+          $ref: '#/components/schemas/Category'
+        stock:
+          type: integer
+          minimum: 0
+        description:
+          type: string
+      required: [name, sku, price]
+
+    ProductPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        price:
+          type: number
+          format: float
+          minimum: 0.01
+        category:
+          $ref: '#/components/schemas/Category'
+        stock:
+          type: integer
+          minimum: 0
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+
+    ApiEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: any
+        error:
+          type: any
+
+    ApiEnvelopeProduct:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Product'
+
+    ApiEnvelopeProductList:
+      allOf:
+        - $ref: '#/components/schemas/ApiEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Product'
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+      required: [success, error]

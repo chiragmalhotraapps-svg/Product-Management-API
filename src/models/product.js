@@ -4,16 +4,29 @@ let products = [];
 const VALID_CATEGORIES = ['electronics', 'books', 'clothing', 'home', 'toys', 'Uncategorized'];
 
 /**
- * Resets the in-memory store.
+ * Resets the in-memory product store to an empty array.
+ * @returns {void}
  */
 const resetStore = () => {
   products = [];
 };
 
 /**
- * Creates a new product.
- * @param {Object} data - Product data.
- * @returns {Object} The created product.
+ * Creates a new product and adds it to the store.
+ * @param {Object} data - Product details.
+ * @param {string} data.name - Name of the product.
+ * @param {string} data.sku - Unique Stock Keeping Unit identifier.
+ * @param {number} data.price - Price of the product.
+ * @param {string} [data.category] - Product category.
+ * @param {number} [data.stock] - Initial stock quantity.
+ * @param {string} [data.description] - Product description.
+ * @returns {Object} The created product object.
+ * @throws {Error} If name or SKU is missing.
+ * @throws {Error} If SKU format is invalid.
+ * @throws {Error} If price is not greater than zero.
+ * @throws {Error} If a product with the given SKU already exists.
+ * @throws {Error} If the provided category is invalid.
+ * @note Ensures SKU uniqueness within the store.
  */
 const create = (data) => {
   const { name, sku, price, category, stock, description } = data;
@@ -50,8 +63,16 @@ const create = (data) => {
 };
 
 /**
- * Finds products based on filters.
- * @param {Object} filters - Filter criteria.
+ * Retrieves a list of active products based on filter criteria.
+ * @param {Object} [filters={}] - Filters to apply.
+ * @param {string} [filters.category] - Filter by category.
+ * @param {number} [filters.minPrice] - Minimum price threshold.
+ * @param {number} [filters.maxPrice] - Maximum price threshold.
+ * @param {string} [filters.inStock] - Filter for products in stock ('true').
+ * @param {string} [filters.search] - Search term for name or description.
+ * @returns {Array<Object>} List of matching active products.
+ * @throws {Error} If the provided category filter is invalid.
+ * @note Only returns products that have not been soft-archived.
  */
 const findAll = (filters = {}) => {
   if (filters.category && !VALID_CATEGORIES.includes(filters.category)) {
@@ -59,7 +80,9 @@ const findAll = (filters = {}) => {
   }
 
   return products.filter(p => {
-    if (p.archivedAt !== null) return false;
+    const productStatus = p.archivedAt === null ? 'active' : 'archived';
+    if (filters.status && productStatus !== filters.status) return false;
+    if (!filters.status && p.archivedAt !== null) return false;
 
     if (filters.category && p.category !== filters.category) return false;
     if (filters.minPrice !== undefined && p.price < filters.minPrice) return false;
@@ -76,7 +99,10 @@ const findAll = (filters = {}) => {
 };
 
 /**
- * Finds a product by ID.
+ * Retrieves a single active product by its unique ID.
+ * @param {string} id - The unique product ID.
+ * @returns {Object|null} The product object if found and active, otherwise null.
+ * @note Returns null for soft-archived products.
  */
 const findById = (id) => {
   const product = products.find(p => p.id === id);
@@ -85,14 +111,24 @@ const findById = (id) => {
 };
 
 /**
- * Finds a product by SKU.
+ * Retrieves a product by its unique SKU.
+ * @param {string} sku - The product SKU.
+ * @returns {Object|null} The product object if found, otherwise null.
  */
 const findBySku = (sku) => {
   return products.find(p => p.sku === sku) || null;
 };
 
 /**
- * Updates a product.
+ * Updates the details of an existing active product.
+ * @param {string} id - The unique product ID.
+ * @param {Object} patch - The updates to apply.
+ * @returns {Object} The updated product object.
+ * @throws {Error} If the product is not found.
+ * @throws {Error} If the product is soft-archived.
+ * @throws {Error} If an attempt is made to update protected fields (id, createdAt, sku).
+ * @throws {Error} If the provided category update is invalid.
+ * @note Prevents modification of SKU to maintain data integrity.
  */
 const update = (id, patch) => {
   const index = products.findIndex(p => p.id === id);
@@ -124,7 +160,11 @@ const update = (id, patch) => {
 };
 
 /**
- * Soft deletes a product.
+ * Soft-archives a product by setting its archived date.
+ * @param {string} id - The unique product ID.
+ * @returns {Object} The archived product object.
+ * @throws {Error} If the product is not found.
+ * @note Implements soft-archive behaviour; data is preserved but marked as archived.
  */
 const deleteProduct = (id) => {
   const product = products.find(p => p.id === id);
@@ -136,7 +176,11 @@ const deleteProduct = (id) => {
 };
 
 /**
- * Restores an archived product.
+ * Restores a soft-archived product to active status.
+ * @param {string} id - The unique product ID.
+ * @returns {Object} The restored product object.
+ * @throws {Error} If the product is not found.
+ * @throws {Error} If the product is not currently archived.
  */
 const restore = (id) => {
   const product = products.find(p => p.id === id);
@@ -148,6 +192,12 @@ const restore = (id) => {
   return product;
 };
 
+/**
+ * Returns the raw in-memory product store.
+ * @returns {Array<Object>} The list of all products.
+ */
+const _products = () => products;
+
 module.exports = {
   create,
   findAll,
@@ -157,6 +207,6 @@ module.exports = {
   delete: deleteProduct,
   restore,
   resetStore,
-  _products: () => products,
+  _products,
   VALID_CATEGORIES,
 };
