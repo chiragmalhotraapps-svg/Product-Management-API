@@ -66,13 +66,14 @@ const create = (data) => {
  * Retrieves a list of active products based on filter criteria.
  * @param {Object} [filters={}] - Filters to apply.
  * @param {string} [filters.category] - Filter by category.
+ * @param {string} [filters.status] - Filter by status (active, archived).
  * @param {number} [filters.minPrice] - Minimum price threshold.
  * @param {number} [filters.maxPrice] - Maximum price threshold.
  * @param {string} [filters.inStock] - Filter for products in stock ('true').
  * @param {string} [filters.search] - Search term for name or description.
- * @returns {Array<Object>} List of matching active products.
+ * @returns {Array<Object>} List of matching products.
  * @throws {Error} If the provided category filter is invalid.
- * @note Only returns products that have not been soft-archived.
+ * @note If no status is provided, only returns active products.
  */
 const findAll = (filters = {}) => {
   if (filters.category && !VALID_CATEGORIES.includes(filters.category)) {
