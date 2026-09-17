@@ -14,6 +14,22 @@ class ProductModel {
     if (filters.status) {
       result = result.filter(p => p.status === filters.status);
     }
+    if (filters.minPrice !== undefined) {
+      result = result.filter(p => p.price >= filters.minPrice);
+    }
+    if (filters.maxPrice !== undefined) {
+      result = result.filter(p => p.price <= filters.maxPrice);
+    }
+    if (filters.inStock !== undefined) {
+      result = result.filter(p => filters.inStock ? p.stock > 0 : p.stock === 0);
+    }
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      result = result.filter(p =>
+        p.name.toLowerCase().includes(searchTerm) ||
+        p.description.toLowerCase().includes(searchTerm)
+      );
+    }
 
     return result;
   }
